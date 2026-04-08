@@ -69,7 +69,7 @@ if file and st.session_state.vector_store:
 # 💬 CHAT DISPLAY
 for msg in st.session_state.chat:
     if msg["role"] == "user":
-        st.markdown(f""📘 {msg['content']}")
+        st.markdown(f"📘 {msg['content']}")
     else:
         st.markdown(f"🤖 {msg['content']}")
 
