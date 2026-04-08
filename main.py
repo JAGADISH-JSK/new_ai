@@ -4,37 +4,12 @@ from langchain_text_splitters import RecursiveCharacterTextSplitter
 from langchain_community.vectorstores import FAISS
 from langchain_community.embeddings import HuggingFaceEmbeddings
 from groq import Groq
-import os
-from dotenv import load_dotenv
 
-# 🔐 Load API Key
-load_dotenv()
-client = Groq(api_key=os.getenv("GROQ_API_KEY"))
+# 🔐 GROQ (Streamlit Cloud safe)
+client = Groq(api_key=st.secrets["GROQ_API_KEY"])
 
 # 🎨 PAGE CONFIG
 st.set_page_config(page_title="Notebar PDF Chatbot", layout="wide")
-
-# 🎨 CUSTOM CSS
-st.markdown("""
-<style>
-.user-msg {
-    background-color: #1f2937;
-    padding: 14px;
-    border-radius: 12px;
-    margin: 10px 0;
-    display: flex;
-    gap: 10px;
-}
-.bot-msg {
-    background-color: #111827;
-    padding: 14px;
-    border-radius: 12px;
-    margin: 10px 0;
-    display: flex;
-    gap: 10px;
-}
-</style>
-""", unsafe_allow_html=True)
 
 # 🧠 SESSION STATE
 if "chat" not in st.session_state:
@@ -72,13 +47,16 @@ if file and st.session_state.vector_store is None:
             text += content
 
     splitter = RecursiveCharacterTextSplitter(
-        chunk_size=500,
-        chunk_overlap=100
+        chunk_size=800,          # 🔥 improved
+        chunk_overlap=200
     )
 
     chunks = splitter.split_text(text)
 
-    embeddings = HuggingFaceEmbeddings()
+    embeddings = HuggingFaceEmbeddings(
+        model_name="all-MiniLM-L6-v2"   # 🔥 better embeddings
+    )
+
     st.session_state.vector_store = FAISS.from_texts(chunks, embeddings)
 
 # 🏷️ TITLE
@@ -91,13 +69,9 @@ if file and st.session_state.vector_store:
 # 💬 CHAT DISPLAY
 for msg in st.session_state.chat:
     if msg["role"] == "user":
-        st.markdown(f"""
-        <div class="user-msg">😎 {msg['content']}</div>
-        """, unsafe_allow_html=True)
+        st.markdown(f"😎 {msg['content']}")
     else:
-        st.markdown(f"""
-        <div class="bot-msg">🤖 {msg['content']}</div>
-        """, unsafe_allow_html=True)
+        st.markdown(f"🤖 {msg['content']}")
 
 # 📝 INPUT
 query = st.chat_input("Ask something about your PDF...")
@@ -111,24 +85,44 @@ if query:
     # Save user message
     st.session_state.chat.append({"role": "user", "content": query})
 
-    # 🔍 SEARCH
-    docs = st.session_state.vector_store.similarity_search(query, k=3)
+    # 🔍 SEARCH (🔥 increased k)
+    docs = st.session_state.vector_store.similarity_search(query, k=5)
+
     context = "\n".join([doc.page_content for doc in docs])
 
     thinking = st.empty()
     thinking.markdown("⏳ Thinking...")
 
     try:
-        # 🤖 GROQ CALL
+        # 🤖 GROQ CALL (🔥 better model + prompt)
         response = client.chat.completions.create(
             messages=[
-                {"role": "system", "content": "Answer ONLY using the PDF context. If not found, say 'Not found in document'."},
-                {"role": "user", "content": f"Context:\n{context}\n\nQuestion: {query}"}
+                {
+                    "role": "system",
+                    "content": """
+You are a helpful assistant.
+
+Answer using ONLY the provided context.
+Format your answer clearly:
+- Use bullet points or numbered lists
+- Each point must be on a new line
+- Keep answers clean and structured
+
+If answer is not found, say: Not found in document
+"""
+                },
+                {
+                    "role": "user",
+                    "content": f"Context:\n{context}\n\nQuestion: {query}"
+                }
             ],
-            model="llama-3.3-70b-versatile"
+            model="mixtral-8x7b-32768"   # 🔥 upgraded model
         )
 
         answer = response.choices[0].message.content
+
+        # 🔧 FIX formatting (force vertical output)
+        answer = answer.replace(". ", ".\n")
 
     except Exception as e:
         answer = f"❌ Error: {str(e)}"
