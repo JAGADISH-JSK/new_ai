@@ -116,7 +116,7 @@ If answer is not found, say: Not found in document
                     "content": f"Context:\n{context}\n\nQuestion: {query}"
                 }
             ],
-             model="llama-3.1-70b-versatile"   # 🔥 upgraded model
+            model="llama-3.3-70b-versatile"   # 🔥 upgraded model
         )
 
         answer = response.choices[0].message.content
