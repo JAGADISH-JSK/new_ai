@@ -5,20 +5,16 @@ from langchain_community.vectorstores import FAISS
 from langchain_community.embeddings import HuggingFaceEmbeddings
 from groq import Groq
 
-# 🔐 GROQ (Streamlit Cloud safe)
 client = Groq(api_key=st.secrets["GROQ_API_KEY"])
 
-# 🎨 PAGE CONFIG
 st.set_page_config(page_title="Notebar PDF Chatbot", layout="wide")
 
-# 🧠 SESSION STATE
 if "chat" not in st.session_state:
     st.session_state.chat = []
 
 if "vector_store" not in st.session_state:
     st.session_state.vector_store = None
 
-# 📁 SIDEBAR
 with st.sidebar:
     st.title("📁 My Notes")
 
@@ -36,7 +32,6 @@ with st.sidebar:
         if st.button("🧹 Clear Chat"):
             st.session_state.chat = []
 
-# 📄 PROCESS PDF
 if file and st.session_state.vector_store is None:
     text = ""
     pdf = PdfReader(file)
@@ -47,45 +42,38 @@ if file and st.session_state.vector_store is None:
             text += content
 
     splitter = RecursiveCharacterTextSplitter(
-        chunk_size=800,          # 🔥 improved
+        chunk_size=800,         
         chunk_overlap=200
     )
 
     chunks = splitter.split_text(text)
 
     embeddings = HuggingFaceEmbeddings(
-        model_name="all-MiniLM-L6-v2"   # 🔥 better embeddings
+        model_name="all-MiniLM-L6-v2"   
     )
 
     st.session_state.vector_store = FAISS.from_texts(chunks, embeddings)
 
-# 🏷️ TITLE
 st.markdown("# 📘 Notebar - PDF Chatbot")
 
-# ✅ SUCCESS
 if file and st.session_state.vector_store:
     st.success("✅ PDF processed successfully!")
 
-# 💬 CHAT DISPLAY
 for msg in st.session_state.chat:
     if msg["role"] == "user":
         st.markdown(f"📘 {msg['content']}")
     else:
         st.markdown(f"✅ {msg['content']}")
 
-# 📝 INPUT
 query = st.chat_input("Ask something about your PDF...")
 
-# 🚨 HANDLE QUERY
 if query:
     if st.session_state.vector_store is None:
         st.warning("⚠️ Please upload a PDF first!")
         st.stop()
 
-    # Save user message
     st.session_state.chat.append({"role": "user", "content": query})
 
-    # 🔍 SEARCH (🔥 increased k)
     docs = st.session_state.vector_store.similarity_search(query, k=5)
 
     context = "\n".join([doc.page_content for doc in docs])
@@ -94,7 +82,6 @@ if query:
     thinking.markdown("⏳ Thinking...")
 
     try:
-        # 🤖 GROQ CALL (🔥 better model + prompt)
         response = client.chat.completions.create(
             messages=[
                 {
@@ -116,12 +103,11 @@ If answer is not found, say: Not found in document
                     "content": f"Context:\n{context}\n\nQuestion: {query}"
                 }
             ],
-            model="llama-3.3-70b-versatile"   # 🔥 upgraded model
+            model="llama-3.3-70b-versatile"  
         )
 
         answer = response.choices[0].message.content
 
-        # 🔧 FIX formatting (force vertical output)
         answer = answer.replace(". ", ".\n")
 
     except Exception as e:
